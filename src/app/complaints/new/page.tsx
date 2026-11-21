@@ -20,6 +20,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { CameraCaptureModal } from '@/components/CameraCaptureModal';
 import { resolveConstituency } from '@/lib/geo';
 import { GUWAHATI_CONSTITUENCIES } from '@/data/constituencies';
+import { publishReport } from '../feed-api';
 import { usePhotoUpload } from '@/components/usePhotoUpload';
 
 export default function NewComplaintPage() {
@@ -116,29 +117,18 @@ export default function NewComplaintPage() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/complaints', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caption: caption.trim(),
-          description: description.trim(),
-          category,
-          latitude: coordinates[1],
-          longitude: coordinates[0],
-          address: address.trim(),
-          imageUrl,
-          locationConfirmed,
-          userDisplayName: userDisplayName.trim() || 'Guest User',
-        }),
+      const complaint = await publishReport({
+        caption: caption.trim(),
+        description: description.trim(),
+        category,
+        latitude: coordinates[1],
+        longitude: coordinates[0],
+        address: address.trim(),
+        imageUrl,
+        locationConfirmed,
+        userDisplayName: userDisplayName.trim() || 'Guest User',
       });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to submit complaint');
-      }
-
-      router.push(`/complaints/${json.data.id}`);
+      router.push(`/complaints/${complaint.id}`);
     } catch (err) {
       console.error('Submit error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during submission.');

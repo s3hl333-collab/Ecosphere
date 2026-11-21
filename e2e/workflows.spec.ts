@@ -26,6 +26,10 @@ test('publishes an uploaded photo from the feed, comments, and toggles a reactio
   await page.getByLabel('Incident Title / Summary').fill(title);
   await page.getByLabel('Attach report photo').setInputFiles(await photo());
   await expect(page.getByRole('img', { name: 'Preview' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close Composer' }).click();
+  await page.getByRole('button', { name: 'Post as Guest User' }).click();
+  await expect(page.getByLabel('Incident Title / Summary')).toHaveValue(title);
+  await expect(page.getByRole('img', { name: 'Preview' })).toBeVisible();
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Publish as Guest User' }).click();
   await expect(page.getByText('Your report has been published', { exact: false })).toBeVisible();
@@ -56,6 +60,17 @@ test('exposes a keyboard skip link and map data directory', async ({ page }) => 
   await expect(skip).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('main')).toBeFocused();
+  const layerControls = page.getByRole('group', { name: 'Environmental layers' });
+  const bioBins = layerControls.getByRole('button', { name: /^Bio(?: Bins)?$/ });
+  const markers = page.locator('.leaflet-marker-icon.custom-bin-bio');
+  await expect(markers.first()).toBeAttached();
+  const initialCount = await markers.count();
+  await bioBins.click();
+  await expect(bioBins).toHaveAttribute('aria-pressed', 'false');
+  await expect(markers).toHaveCount(0);
+  await expect(page.locator('.leaflet-marker-icon.custom-bin-dry').first()).toBeAttached();
+  await bioBins.click();
+  await expect(markers).toHaveCount(initialCount);
   const directory = page.getByRole('region', { name: 'Accessible Data List View' });
   await directory.getByRole('button', { name: /Waterbodies/ }).click();
   await expect(directory.getByRole('table')).toContainText('Deepor Beel');

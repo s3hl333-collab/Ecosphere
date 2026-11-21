@@ -2,21 +2,9 @@
 
 import React, { useEffect, useEffectEvent, useRef, useState, useCallback, useId } from 'react';
 import type * as Leaflet from 'leaflet';
+import { renderEnvironmentalLayers, type EnvironmentalMapData, type MapInspector } from './map/environmentalLayers';
+import { LayerControls, type LayerId } from './map/LayerControls';
 import {
-  WasteBin,
-  RecyclingFacility,
-  Waterbody,
-  AQIMeasurement,
-  TrafficObservation,
-  Complaint,
-} from '@/lib/types';
-import {
-  MapPin,
-  Trash2,
-  Droplet,
-  Wind,
-  Car,
-  AlertTriangle,
   Locate,
   ZoomIn,
   ZoomOut,
@@ -24,28 +12,26 @@ import {
   X,
   Sun,
   Moon,
-  Compass,
-  CheckCircle2,
   Maximize2,
   Minimize2,
-  Layers,
   Globe,
   Satellite,
   HelpCircle,
-  Eye,
-  SlidersHorizontal,
 } from 'lucide-react';
 
 const GUWAHATI_COORDS: [number, number] = [26.1445, 91.7362];
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-interface MapComponentProps {
-  wasteBins: WasteBin[];
-  recyclingFacilities: RecyclingFacility[];
-  waterbodies: Waterbody[];
-  aqiStations: AQIMeasurement[];
-  trafficObservations: TrafficObservation[];
-  complaints: Complaint[];
+const HOTSPOTS = [
+  { name: 'Bharalu Canal (DO 0.8)', lat: 26.1741, lng: 91.7342, zoom: 15 },
+  { name: 'GS Road (Heavy Traffic)', lat: 26.1589, lng: 91.7761, zoom: 15 },
+  { name: 'Pan Bazar (Air Station)', lat: 26.1852, lng: 91.7471, zoom: 15 },
+  { name: 'Deepor Beel (Wetland)', lat: 26.1287, lng: 91.6625, zoom: 14 },
+  { name: 'Jalukbari Rotary (Exhaust)', lat: 26.1568, lng: 91.6841, zoom: 15 },
+  { name: 'Fancy Bazar (Bio/Dry Bins)', lat: 26.1856, lng: 91.7412, zoom: 16 },
+];
+
+interface MapComponentProps extends EnvironmentalMapData {
   interactive?: boolean;
   selectedLocation?: [number, number]; // [lng, lat]
   onLocationSelect?: (coords: [number, number]) => void;
@@ -84,10 +70,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const selectMapLocation = useEffectEvent((coords: [number, number]) => onLocationSelect?.(coords));
 
   // Active Environmental Data Layers
-  const [layers, setLayers] = useState({
+  const [layers, setLayers] = useState<Record<LayerId, boolean>>({
     bioBins: true,
     nonBioBins: true,
-    recycling: true,
     waterbodies: true,
     aqi: true,
     traffic: true,
@@ -95,28 +80,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   });
 
   // Active Inspector Drawer
-  const [activeInspector, setActiveInspector] = useState<{
-    type: string;
-    title: string;
-    badge: string;
-    badgeVariant: 'green' | 'blue' | 'yellow' | 'red' | 'gray';
-    subtitle?: string;
-    imageUrl?: string;
-    metrics: { label: string; value: string }[];
-    description?: string;
-    prototypeNotice?: string;
-    actionLink?: { href: string; label: string };
-  } | null>(null);
-
-  // Hotspots for Rapid Navigation
-  const HOTSPOTS = [
-    { name: 'Bharalu Canal (DO 0.8)', lat: 26.1741, lng: 91.7342, zoom: 15 },
-    { name: 'GS Road (Heavy Traffic)', lat: 26.1589, lng: 91.7761, zoom: 15 },
-    { name: 'Pan Bazar (Air Station)', lat: 26.1852, lng: 91.7471, zoom: 15 },
-    { name: 'Deepor Beel (Wetland)', lat: 26.1287, lng: 91.6625, zoom: 14 },
-    { name: 'Jalukbari Rotary (Exhaust)', lat: 26.1568, lng: 91.6841, zoom: 15 },
-    { name: 'Fancy Bazar (Bio/Dry Bins)', lat: 26.1856, lng: 91.7412, zoom: 16 },
-  ];
+  const [activeInspector, setActiveInspector] = useState<MapInspector | null>(null);
 
   // Apply Tile Layer to Map
   const applyTileLayer = useCallback((L: typeof Leaflet, map: Leaflet.Map, mode: 'satellite' | 'hybrid' | 'dark' | 'streets') => {
@@ -205,347 +169,6 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       setTileLoadError(true);
     }
   }, []);
-
-  // Render Environmental Elements
-  const renderEnvironmentalLayers = useCallback((L: typeof Leaflet, group: Leaflet.LayerGroup) => {
-    group.clearLayers();
-
-    // 1. Biodegradable Bins (Emerald with BIO Badge)
-    if (layers.bioBins) {
-      wasteBins
-        .filter((b) => b.category === 'biodegradable')
-        .forEach((b) => {
-          const icon = L.divIcon({
-            className: 'custom-bin-bio',
-            html: `
-              <div class="relative flex items-center justify-center cursor-pointer group touch-manipulation">
-                <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-emerald-400 opacity-40"></span>
-                <div class="w-8 h-8 rounded-full bg-emerald-600 border-2 border-white shadow-xl flex items-center justify-center text-white transition-transform group-hover:scale-125">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                </div>
-                <span class="absolute -bottom-2 bg-emerald-700 text-white font-mono text-[8px] font-bold px-1 rounded shadow-xs">BIO</span>
-              </div>
-            `,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-          });
-
-          const marker = L.marker([b.coordinates[1], b.coordinates[0]], { icon, title: `Biodegradable bin: ${b.address}` }).addTo(group);
-          marker.on('click', () => {
-            setActiveInspector({
-              type: 'MUNICIPAL INFRASTRUCTURE',
-              title: 'Biodegradable Organic Dustbin',
-              badge: 'GREEN BIN (WET WASTE)',
-              badgeVariant: 'green',
-              subtitle: b.address,
-              metrics: [
-                { label: 'Volume Capacity', value: `${b.capacityLiters} L` },
-                { label: 'Fill Status', value: b.fillStatus.toUpperCase() },
-                { label: 'Coordinates', value: `${b.coordinates[1].toFixed(4)}, ${b.coordinates[0].toFixed(4)}` },
-                { label: 'Sanitation Division', value: b.verifiedBy },
-              ],
-              description: 'Exclusively intended for compostable kitchen waste, fruit/vegetable discards, and biological matter.',
-              prototypeNotice: 'Guwahati Municipal Corporation Ward Demonstration Record',
-            });
-          });
-        });
-    }
-
-    // 2. Non-Biodegradable Bins (Electric Sky Blue with DRY Badge)
-    if (layers.nonBioBins) {
-      wasteBins
-        .filter((b) => b.category === 'non_biodegradable')
-        .forEach((b) => {
-          const icon = L.divIcon({
-            className: 'custom-bin-dry',
-            html: `
-              <div class="relative flex items-center justify-center cursor-pointer group touch-manipulation">
-                <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-sky-400 opacity-40"></span>
-                <div class="w-8 h-8 rounded-full bg-sky-600 border-2 border-white shadow-xl flex items-center justify-center text-white transition-transform group-hover:scale-125">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                </div>
-                <span class="absolute -bottom-2 bg-sky-700 text-white font-mono text-[8px] font-bold px-1 rounded shadow-xs">DRY</span>
-              </div>
-            `,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-          });
-
-          const marker = L.marker([b.coordinates[1], b.coordinates[0]], { icon, title: `Non-biodegradable bin: ${b.address}` }).addTo(group);
-          marker.on('click', () => {
-            setActiveInspector({
-              type: 'MUNICIPAL INFRASTRUCTURE',
-              title: 'Non-Biodegradable Recyclables Dustbin',
-              badge: 'BLUE BIN (DRY WASTE)',
-              badgeVariant: 'blue',
-              subtitle: b.address,
-              metrics: [
-                { label: 'Volume Capacity', value: `${b.capacityLiters} L` },
-                { label: 'Fill Status', value: b.fillStatus.toUpperCase() },
-                { label: 'Coordinates', value: `${b.coordinates[1].toFixed(4)}, ${b.coordinates[0].toFixed(4)}` },
-                { label: 'Inspection Agency', value: b.verifiedBy },
-              ],
-              description: 'Designed for dry recyclables: PET bottles, clean plastics, aluminum cans, glass, and paper.',
-              prototypeNotice: 'Guwahati Municipal Corporation Ward Demonstration Record',
-            });
-          });
-        });
-    }
-
-    // 3. Polluted Rivers & Waterbodies (Flow Polylines on Satellite Surface)
-    if (layers.waterbodies) {
-      waterbodies.forEach((w) => {
-        if (w.polylineCoordinates && w.polylineCoordinates.length > 1) {
-          const latLngs = w.polylineCoordinates.map((pt) => [pt[1], pt[0]] as [number, number]);
-
-          const color =
-            w.pollutionLevel === 'critical'
-              ? '#DC2626'
-              : w.pollutionLevel === 'severe'
-              ? '#EA580C'
-              : '#0284C7';
-
-          const polyline = L.polyline(latLngs, {
-            color,
-            weight: 6,
-            opacity: 0.9,
-            dashArray: w.pollutionLevel === 'critical' ? '8, 8' : undefined,
-          }).addTo(group);
-
-          polyline.on('click', () => {
-            setActiveInspector({
-              type: 'HYDROLOGICAL CORRIDOR',
-              title: w.name,
-              badge: `${w.pollutionLevel.toUpperCase()} POLLUTION (DO: ${w.dissolvedOxygenMgL ?? 0.8} mg/L)`,
-              badgeVariant: w.pollutionLevel === 'critical' ? 'red' : 'yellow',
-              subtitle: `${w.waterbodyType.toUpperCase()} &bull; Guwahati Drainage Basin`,
-              metrics: [
-                { label: 'Dissolved Oxygen (DO)', value: `${w.dissolvedOxygenMgL ?? 'N/A'} mg/L` },
-                { label: 'Biochem. Oxygen Demand (BOD)', value: `${w.bodMgL ?? 'N/A'} mg/L` },
-                { label: 'Primary Stressors', value: w.primaryPollutants?.join(', ') || 'Untreated solid waste' },
-                { label: 'Data Source', value: w.dataSource || 'SPCB Assam' },
-              ],
-              description: `Critical hydrological basin in Guwahati. Unsegregated plastic dumps and organic sludge lead to severe dissolved oxygen depletion.`,
-              prototypeNotice: 'Pollution thresholds calibrated against SPCB Assam water quality monitoring stations.',
-            });
-          });
-        }
-
-        // River Centroid Marker
-        const icon = L.divIcon({
-          className: 'custom-waterbody',
-          html: `
-            <div class="relative flex items-center justify-center cursor-pointer group touch-manipulation">
-              <span class="animate-ping absolute inline-flex h-9 w-9 rounded-full ${w.pollutionLevel === 'critical' ? 'bg-rose-500' : 'bg-sky-400'} opacity-60"></span>
-              <div class="w-8 h-8 rounded-full ${w.pollutionLevel === 'critical' ? 'bg-rose-600' : 'bg-sky-600'} border-2 border-white shadow-xl flex items-center justify-center text-white">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
-              </div>
-            </div>
-          `,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        });
-
-        const marker = L.marker([w.coordinates[1], w.coordinates[0]], { icon, title: w.name }).addTo(group);
-        marker.on('click', () => {
-          setActiveInspector({
-            type: 'HYDROLOGICAL CORRIDOR',
-            title: w.name,
-            badge: `${w.pollutionLevel.toUpperCase()} POLLUTION (DO: ${w.dissolvedOxygenMgL ?? 0.8} mg/L)`,
-            badgeVariant: w.pollutionLevel === 'critical' ? 'red' : 'yellow',
-            subtitle: `${w.waterbodyType.toUpperCase()} &bull; Guwahati Drainage Basin`,
-            metrics: [
-              { label: 'Dissolved Oxygen (DO)', value: `${w.dissolvedOxygenMgL ?? 'N/A'} mg/L` },
-              { label: 'Biochem. Oxygen Demand (BOD)', value: `${w.bodMgL ?? 'N/A'} mg/L` },
-              { label: 'Primary Stressors', value: w.primaryPollutants?.join(', ') || 'Solid waste' },
-              { label: 'Testing Agency', value: w.dataSource || 'SPCB Assam' },
-            ],
-            description: `Key waterbody in Kamrup Metropolitan. Dissolved oxygen levels indicate anaerobic conditions near uncollected waste discharge points.`,
-            prototypeNotice: 'Thresholds modeled after regional Assam water monitoring stations.',
-          });
-        });
-      });
-    }
-
-    // 4. Traffic Pollution Corridors (Emissions Plumes)
-    if (layers.traffic) {
-      trafficObservations.forEach((t) => {
-        const coords = t.coordinates;
-        if (coords && coords.length > 1) {
-          const latLngs = coords.map((pt: [number, number]) => [pt[1], pt[0]] as [number, number]);
-
-          const color =
-            t.congestionLevel === 'heavy' || t.congestionLevel === 'severe'
-              ? '#EF4444'
-              : t.congestionLevel === 'moderate'
-              ? '#F59E0B'
-              : '#10B981';
-
-          const trafficLine = L.polyline(latLngs, {
-            color,
-            weight: 7,
-            opacity: 0.85,
-          }).addTo(group);
-
-          trafficLine.on('click', () => {
-            setActiveInspector({
-              type: 'VEHICULAR EMISSION CORRIDOR',
-              title: t.roadName,
-              badge: `${t.congestionLevel.toUpperCase()} CONGESTION`,
-              badgeVariant: t.congestionLevel === 'heavy' || t.congestionLevel === 'severe' ? 'red' : 'yellow',
-              subtitle: 'Tailpipe Emission Surge Analysis',
-              metrics: [
-                { label: 'Average Speed', value: `${t.averageSpeedKmh} km/h` },
-                { label: 'Pollution Index', value: t.airPollutionIndex || 'High' },
-                { label: 'Emission Impact', value: t.emissionImpact || 'Elevated localized PM2.5' },
-                { label: 'Updated At', value: new Date(t.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
-              ],
-              description: `High vehicle idling along ${t.roadName || 'corridor'} correlates directly with localized air pollution spikes and nitrogen dioxide elevation.`,
-              prototypeNotice: 'Synthetic traffic telemetry calibrated to regional vehicular bottlenecks.',
-            });
-          });
-        }
-      });
-    }
-
-    // 5. NAQI Atmospheric Monitoring Stations
-    if (layers.aqi) {
-      aqiStations.forEach((a) => {
-        const color =
-          a.category === 'Poor'
-            ? '#DC2626'
-            : a.category === 'Moderate'
-            ? '#D97706'
-            : '#10B981';
-
-        // Atmospheric Dispersion Radius Ring
-        L.circle([a.coordinates[1], a.coordinates[0]], {
-          radius: 900,
-          color,
-          fillColor: color,
-          fillOpacity: 0.15,
-          weight: 1.5,
-          dashArray: '4, 6',
-        }).addTo(group);
-
-        // Station Badge Marker
-        const icon = L.divIcon({
-          className: 'custom-aqi',
-          html: `
-            <div class="relative flex items-center justify-center cursor-pointer group touch-manipulation">
-              <div class="px-2 py-1 rounded-md ${color === '#DC2626' ? 'bg-rose-600' : color === '#D97706' ? 'bg-amber-600' : 'bg-emerald-600'} border-2 border-white shadow-2xl text-white font-mono text-[10px] font-bold transition-transform group-hover:scale-120 flex items-center gap-1">
-                <span>${a.aqiValue}</span>
-                <span class="text-[7px] uppercase font-sans opacity-85">NAQI</span>
-              </div>
-            </div>
-          `,
-          iconSize: [48, 28],
-          iconAnchor: [24, 14],
-        });
-
-        const marker = L.marker([a.coordinates[1], a.coordinates[0]], { icon, title: a.stationName }).addTo(group);
-        marker.on('click', () => {
-          setActiveInspector({
-            type: 'ATMOSPHERIC OBSERVATORY',
-            title: a.stationName,
-            badge: `${a.category.toUpperCase()} AIR QUALITY`,
-            badgeVariant: a.category === 'Poor' ? 'red' : a.category === 'Moderate' ? 'yellow' : 'green',
-            subtitle: a.aqiScale,
-            metrics: [
-              { label: 'National AQI Score', value: `${a.aqiValue}` },
-              { label: 'Fine PM2.5', value: `${a.pm25} µg/m³` },
-              { label: 'Coarse PM10', value: `${a.pm10} µg/m³` },
-              { label: 'Dominant Pollutant', value: a.dominantPollutant },
-            ],
-            description: `Health guidance: ${
-              a.aqiValue > 200
-                ? 'Unhealthy for sensitive individuals and active citizens. High localized dust and vehicular tailpipe particulates.'
-                : 'Moderate air condition. Outdoor exposure acceptable for general public.'
-            }`,
-            prototypeNotice: a.sourceLabel,
-          });
-        });
-      });
-    }
-
-    // 6. Junkyards & Recycling Centers
-    if (layers.recycling) {
-      recyclingFacilities.forEach((f) => {
-        const icon = L.divIcon({
-          className: 'custom-recycler',
-          html: `
-            <div class="absolute left-1.5 bottom-1.5 w-8 h-8 rounded-full bg-amber-700 border-2 border-white shadow-xl flex items-center justify-center text-white cursor-pointer transition-transform touch-manipulation">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"></path><path d="M11 19h8.2a1.8 1.8 0 0 0 1.558-.9 1.8 1.8 0 0 0 0-1.8L16.8 9.5"></path><path d="M9.5 5.5 12 2l2.5 3.5"></path><path d="M14 9a2 2 0 0 1-2 2H8"></path></svg>
-            </div>
-          `,
-          iconSize: [44, 54],
-          iconAnchor: [22, 32],
-        });
-
-        const marker = L.marker([f.coordinates[1], f.coordinates[0]], { icon, title: f.name }).addTo(group);
-        marker.on('click', () => {
-          setActiveInspector({
-            type: 'CIRCULAR ECONOMY ASSET',
-            title: f.name,
-            badge: (f.acceptedCategories || []).join(' &bull; ').toUpperCase() || 'SCRAP RECOVERY',
-            badgeVariant: 'yellow',
-            subtitle: f.address,
-            metrics: [
-              { label: 'Verification', value: (f.verificationStatus || 'VERIFIED').toUpperCase() },
-              { label: 'Facility Type', value: (f.facilityType || 'Scrap Center').replace(/_/g, ' ').toUpperCase() },
-              { label: 'Categories Handled', value: (f.acceptedCategories || []).join(', ') },
-              { label: 'Contact Helpline', value: f.contactPhone || 'Available at entrance' },
-            ],
-            description: 'Authorized municipal and private scrap recovery facility supporting dry waste diversion.',
-            prototypeNotice: 'Registered resource recovery facility record in Kamrup Metropolitan division.',
-          });
-        });
-      });
-    }
-
-    // 7. Civic Complaints
-    if (layers.complaints) {
-      complaints.forEach((c) => {
-        const [cLng, cLat] = c.coordinates;
-
-        const icon = L.divIcon({
-          className: 'custom-complaint',
-          html: `
-            <div class="relative flex items-center justify-center cursor-pointer group touch-manipulation">
-              <div class="w-8 h-8 rounded-full bg-rose-600 border-2 border-white shadow-2xl flex items-center justify-center text-white transition-transform group-hover:scale-125">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-              </div>
-            </div>
-          `,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        });
-
-        const marker = L.marker([cLat, cLng], { icon, title: c.caption }).addTo(group);
-        marker.on('click', () => {
-          setActiveInspector({
-            type: 'CITIZEN ENVIRONMENTAL REPORT',
-            title: c.caption,
-            badge: `${(c.status || 'REPORTED').toUpperCase()}`,
-            badgeVariant: c.status === 'Resolved' ? 'green' : c.status === 'Under Review' ? 'yellow' : 'red',
-            subtitle: c.address,
-            imageUrl: c.imageUrl,
-            metrics: [
-              { label: 'Reported By', value: `${c.userDisplayName} (${c.userRole || 'Citizen'})` },
-              { label: 'Category', value: c.category.replace(/_/g, ' ').toUpperCase() },
-              { label: 'Constituency', value: c.constituencyName || 'Guwahati Municipal' },
-              { label: 'Community Signals', value: `❤️ ${c.likesCount || 0}  💬 ${c.commentsCount || c.comments?.length || 0}` },
-              { label: 'Prototype MLA', value: c.prototypeRepresentative || 'Assigned automatically' },
-              { label: 'Reported Date', value: new Date(c.createdAt).toLocaleDateString() },
-            ],
-            description: c.description || 'Public citizen report published to EcoSphere community feed.',
-            prototypeNotice: 'Prototype MLA representation mapped via Point-in-Polygon calculation',
-            actionLink: { href: `/complaints/${c.id}`, label: 'View full report' },
-          });
-        });
-      });
-    }
-  }, [layers, wasteBins, recyclingFacilities, waterbodies, aqiStations, trafficObservations, complaints]);
 
   // Update User Selected Pin
   const renderUserPin = useCallback((L: typeof Leaflet, map: Leaflet.Map, coords?: [number, number]) => {
@@ -673,8 +296,12 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   // Update Environmental Data Layers when Filters or Data change
   useEffect(() => {
     if (!mapReady || !leafletLibRef.current || !mapInstanceRef.current || !layersGroupRef.current) return;
-    renderEnvironmentalLayers(leafletLibRef.current, layersGroupRef.current);
-  }, [mapReady, renderEnvironmentalLayers]);
+    renderEnvironmentalLayers(
+      { L: leafletLibRef.current, group: layersGroupRef.current, inspect: setActiveInspector },
+      { wasteBins, recyclingFacilities, waterbodies, aqiStations, trafficObservations, complaints },
+      layers,
+    );
+  }, [mapReady, layers, wasteBins, recyclingFacilities, waterbodies, aqiStations, trafficObservations, complaints]);
 
   // Update Selected User Pin when coords change
   useEffect(() => {
@@ -839,156 +466,10 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         </button>
       </div>
 
-      {/* Floating HUD: Environmental Layer Filter Chips (Desktop & Tablet) */}
-      <div className="absolute top-14 sm:top-3 left-2.5 sm:left-auto sm:right-16 z-[400] hidden sm:flex flex-wrap items-center gap-1.5 p-1.5 bg-zinc-950/92 backdrop-blur-md rounded-xl border border-zinc-800 shadow-2xl">
-        {/* Bio Bins */}
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, bioBins: !layers.bioBins })}
-          aria-pressed={layers.bioBins}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-            layers.bioBins ? 'bg-emerald-600 text-white font-semibold shadow-xs' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-300" />
-          <span>Bio Bins</span>
-        </button>
-
-        {/* Non-Bio Bins */}
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, nonBioBins: !layers.nonBioBins })}
-          aria-pressed={layers.nonBioBins}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-            layers.nonBioBins ? 'bg-sky-600 text-white font-semibold shadow-xs' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-sky-300" />
-          <span>Non-Bio Bins</span>
-        </button>
-
-        {/* River Pollution */}
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, waterbodies: !layers.waterbodies })}
-          aria-pressed={layers.waterbodies}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-            layers.waterbodies ? 'bg-rose-600 text-white font-semibold shadow-xs' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <Droplet className="h-3 w-3" />
-          <span>River Hypoxia</span>
-        </button>
-
-        {/* AQI Atmospheric Rings */}
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, aqi: !layers.aqi })}
-          aria-pressed={layers.aqi}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-            layers.aqi ? 'bg-amber-600 text-white font-semibold shadow-xs' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <Wind className="h-3 w-3 text-amber-300" />
-          <span>NAQI Stations</span>
-        </button>
-
-        {/* Traffic Pollution Signal */}
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, traffic: !layers.traffic })}
-          aria-pressed={layers.traffic}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-            layers.traffic ? 'bg-red-600 text-white font-semibold shadow-xs' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <Car className="h-3 w-3" />
-          <span>Traffic Emissions</span>
-        </button>
-
-        {/* Civic Complaints */}
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, complaints: !layers.complaints })}
-          aria-pressed={layers.complaints}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-            layers.complaints ? 'bg-zinc-700 text-white font-semibold shadow-xs' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-          }`}
-        >
-          <AlertTriangle className="h-3 w-3 text-amber-400" />
-          <span>Complaints</span>
-        </button>
-      </div>
-
-      {/* Mobile Horizontal Scrolling Layer Bar */}
-      <div className="absolute top-14 left-2.5 right-2.5 z-[400] flex sm:hidden items-center gap-1.5 p-1 bg-zinc-950/92 backdrop-blur-md rounded-xl border border-zinc-800 shadow-xl overflow-x-auto no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, bioBins: !layers.bioBins })}
-          aria-pressed={layers.bioBins}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium shrink-0 ${
-            layers.bioBins ? 'bg-emerald-600 text-white' : 'text-zinc-400 bg-zinc-900'
-          }`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
-          <span>Bio</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, nonBioBins: !layers.nonBioBins })}
-          aria-pressed={layers.nonBioBins}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium shrink-0 ${
-            layers.nonBioBins ? 'bg-sky-600 text-white' : 'text-zinc-400 bg-zinc-900'
-          }`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-300" />
-          <span>Dry</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, waterbodies: !layers.waterbodies })}
-          aria-pressed={layers.waterbodies}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium shrink-0 ${
-            layers.waterbodies ? 'bg-rose-600 text-white' : 'text-zinc-400 bg-zinc-900'
-          }`}
-        >
-          <Droplet className="h-2.5 w-2.5" />
-          <span>River</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, aqi: !layers.aqi })}
-          aria-pressed={layers.aqi}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium shrink-0 ${
-            layers.aqi ? 'bg-amber-600 text-white' : 'text-zinc-400 bg-zinc-900'
-          }`}
-        >
-          <Wind className="h-2.5 w-2.5" />
-          <span>NAQI</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, traffic: !layers.traffic })}
-          aria-pressed={layers.traffic}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium shrink-0 ${
-            layers.traffic ? 'bg-red-600 text-white' : 'text-zinc-400 bg-zinc-900'
-          }`}
-        >
-          <Car className="h-2.5 w-2.5" />
-          <span>Traffic</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setLayers({ ...layers, complaints: !layers.complaints })}
-          aria-pressed={layers.complaints}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium shrink-0 ${
-            layers.complaints ? 'bg-zinc-700 text-white' : 'text-zinc-400 bg-zinc-900'
-          }`}
-        >
-          <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
-          <span>Reports</span>
-        </button>
-      </div>
+      <LayerControls
+        visible={layers}
+        onToggle={(id) => setLayers((current) => ({ ...current, [id]: !current[id] }))}
+      />
 
       {/* Hotspots Quick Jump Ribbon (Desktop) */}
       <div className="absolute top-14 left-3 z-[400] hidden md:flex items-center gap-1 p-1 bg-zinc-950/92 backdrop-blur-md rounded-lg border border-zinc-800 shadow-md text-[10px]">

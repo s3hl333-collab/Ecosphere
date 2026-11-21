@@ -1,30 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import React from 'react';
-import {
-  WasteBin,
-  RecyclingFacility,
-  Waterbody,
-  AQIMeasurement,
-  TrafficObservation,
-  Complaint,
-} from '@/lib/types';
-
-interface MapWrapperProps {
-  wasteBins: WasteBin[];
-  recyclingFacilities: RecyclingFacility[];
-  waterbodies: Waterbody[];
-  aqiStations: AQIMeasurement[];
-  trafficObservations: TrafficObservation[];
-  complaints: Complaint[];
-  interactive?: boolean;
-  selectedLocation?: [number, number]; // [lng, lat]
-  onLocationSelect?: (coords: [number, number]) => void;
-  heightClass?: string;
-}
-
-const DynamicMap = dynamic(
+export const MapWrapper = dynamic(
   () => import('./MapComponent').then((mod) => mod.MapComponent),
   {
     ssr: false,
@@ -38,7 +15,3 @@ const DynamicMap = dynamic(
     ),
   }
 );
-
-export const MapWrapper: React.FC<MapWrapperProps> = (props) => {
-  return <DynamicMap {...props} />;
-};
