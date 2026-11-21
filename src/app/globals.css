@@ -1,0 +1,104 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FAFAF9;
+  --surface: #FFFFFF;
+  --text-primary: #09090B;
+  --text-secondary: #71717A;
+  --border: #E4E4E7;
+  --primary: #0F5B44;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+html {
+  scroll-padding-top: 4.5rem;
+  scroll-padding-bottom: 5rem;
+}
+
+:focus-visible {
+  outline: 2px solid #176b50 !important;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hide scrollbars for clean horizontal pill bars on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Subtle architectural dot grid */
+.bg-grid-pattern {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Leaflet container fixes */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: inherit;
+  z-index: 10;
+  background: #091210;
+  touch-action: pan-x pan-y;
+}
+
+.leaflet-tile {
+  filter: contrast(105%) brightness(98%);
+}
+
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #09090B;
+  color: #F4F4F5;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.leaflet-popup-tip {
+  background: #09090B;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.leaflet-popup-close-button {
+  color: #A1A1AA !important;
+  padding: 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #FFFFFF !important;
+}
